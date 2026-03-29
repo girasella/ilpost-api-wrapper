@@ -6,7 +6,7 @@ Searches articles, podcast episodes, and newsletters — no authentication requi
 ## Installation
 
 ```bash
-pip install -e .
+pip install ilpost-api-wrapper
 ```
 
 Requires Python 3.9+. No third-party dependencies.
