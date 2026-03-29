@@ -33,5 +33,8 @@ Homepage = "https://github.com/girasella/ilpost-api-wrapper"
 Repository = "https://github.com/girasella/ilpost-api-wrapper"
 Issues = "https://github.com/girasella/ilpost-api-wrapper/issues"
 
+[project.scripts]
+ilpost-search = "ilpost.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]

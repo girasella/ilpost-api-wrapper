@@ -1,7 +1,8 @@
 import argparse
 import sys
 
-from ilpost import IlPostClient, SortOrder, ContentType, DateRange
+from .client import IlPostClient
+from .models import SortOrder, ContentType, DateRange
 
 
 def build_parser() -> argparse.ArgumentParser:

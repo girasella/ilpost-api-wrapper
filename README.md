@@ -140,7 +140,7 @@ for group in result.filters:
 
 ## CLI
 
-A command-line interface is provided via `main.py`:
+The `ilpost-search` command is included with the package:
 
 ```
 usage: ilpost-search [-h] [--type {articles,podcasts,newsletters}]
@@ -153,19 +153,19 @@ usage: ilpost-search [-h] [--type {articles,podcasts,newsletters}]
 
 ```bash
 # Basic search
-python main.py berlusconi
+ilpost-search berlusconi
 
 # Most recent articles in politics
-python main.py renzi --type articles --sort newest --category politica
+ilpost-search renzi --type articles --sort newest --category politica
 
 # Podcast search, past 30 days
-python main.py cacao --type podcasts --date month
+ilpost-search cacao --type podcasts --date month
 
 # Page 2, 5 results per page, oldest first
-python main.py sicilia --sort oldest --hits 5 --page 2
+ilpost-search sicilia --sort oldest --hits 5 --page 2
 
 # Fetch all pages of newsletter results (up to 3 pages)
-python main.py economia --type newsletters --all-pages --max-pages 3
+ilpost-search economia --type newsletters --all-pages --max-pages 3
 ```
 
 ## Notes
