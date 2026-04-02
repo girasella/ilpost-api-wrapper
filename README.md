@@ -46,6 +46,9 @@ for doc in result.docs:
 | `content_type` | `ContentType` | `None` | Filter by content type |
 | `category` | `str` | `None` | Editorial category (articles only) |
 | `date_range` | `DateRange` | `None` | Publication date filter |
+| `fetch_content` | `bool` | `False` | Scrape and return full article text for each article result (see [`Document.content`](#document)) |
+
+> `fetch_content` is available on `search()`, `search_articles()`, and `paginate()`. It has no effect on podcast or newsletter results — `doc.content` will be `None` for those types.
 
 #### Enums
 
@@ -101,6 +104,7 @@ for doc in result.docs:
 | `category` | `str \| None` | Editorial category (articles only) |
 | `post_tag_text` | `list[str]` | Tags (articles only) |
 | `derived_info` | `dict` | Extra data: episode or newsletter metadata |
+| `content` | `str \| None` | Full article body text, populated when `fetch_content=True` (articles only) |
 | `is_article` | `bool` | Convenience property |
 | `is_podcast` | `bool` | Convenience property |
 | `is_newsletter` | `bool` | Convenience property |
@@ -136,6 +140,17 @@ for group in result.filters:
     print(f"{group.label}:")
     for opt in group.options:
         print(f"  {opt.label}: {opt.doc_count}")
+
+# Fetch full article text alongside search results
+result = client.search_articles("economia", hits=5, fetch_content=True)
+for doc in result.docs:
+    print(doc.title)
+    if doc.content:
+        print(doc.content[:300])
+
+# Use the scraper directly (e.g. for parallel fetching)
+from ilpost import fetch_article_content
+text = fetch_article_content("https://www.ilpost.it/2026/04/02/...")
 ```
 
 ## CLI
@@ -147,9 +162,11 @@ usage: ilpost-search [-h] [--type {articles,podcasts,newsletters}]
                      [--sort {relevance,newest,oldest}]
                      [--date {all,year,month}] [--category CATEGORY]
                      [--page PAGE] [--hits HITS] [--all-pages]
-                     [--max-pages N]
+                     [--max-pages N] [--fetch-content]
                      query
 ```
+
+Each result is printed with labelled fields: `type`, `category`, `title`, `link`, `date`, `score`, `summary`, and either `content` (when `--fetch-content` is used) or `excerpt` (search highlight).
 
 ```bash
 # Basic search
@@ -166,6 +183,9 @@ ilpost-search sicilia --sort oldest --hits 5 --page 2
 
 # Fetch all pages of newsletter results (up to 3 pages)
 ilpost-search economia --type newsletters --all-pages --max-pages 3
+
+# Fetch full article text for each result
+ilpost-search bondi --type articles --hits 3 --fetch-content
 ```
 
 ## Notes
