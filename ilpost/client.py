@@ -13,17 +13,19 @@ _BASE_URL = "https://api.ilpost.org/search/api/site_search/"
 
 def _build_filters(
     content_type: Optional[ContentType] = None,
-    category: Optional[str] = None,
+    category: Optional[Union[str, list[str]]] = None,
     date_range: Optional[DateRange] = None,
 ) -> str:
     parts: list[str] = []
     if content_type is not None:
         parts.append(f"ctype:{content_type.value}")
     if category is not None:
-        parts.append(f"category:{category}")
+        cats = [category] if isinstance(category, str) else category
+        for cat in cats:
+            parts.append(f"category:{cat}")
     if date_range is not None:
         parts.append(f"pub_date:{date_range.value}")
-    return ",".join(parts)
+    return ";".join(parts)
 
 
 class IlPostClient:
@@ -52,7 +54,7 @@ class IlPostClient:
         hits: int = 10,
         sort: Union[SortOrder, str] = SortOrder.RELEVANCE,
         content_type: Optional[ContentType] = None,
-        category: Optional[str] = None,
+        category: Optional[Union[str, list[str]]] = None,
         date_range: Optional[DateRange] = None,
         filters: Optional[str] = None,
     ) -> SearchResult:
@@ -61,7 +63,18 @@ class IlPostClient:
         Parameters
         ----------
         query:
-            Search term.
+            Search term. Supports:
+
+            - Exact phrase: ``'"goffredo fofi"'``
+            - Boolean OR: ``"fofi | berlusconi"`` (``|`` and ``OR`` both work)
+            - Boolean AND: ``"fofi AND berlusconi"`` or just ``"fofi berlusconi"``
+            - Boolean NOT: ``"berlusconi NOT fininvest"``
+
+            The following syntax does **not** work and should be avoided:
+
+            - Field prefix (``title:fofi``, ``content:fofi``) — treated as literal tokens
+            - Boost operator (``berlusconi^10``) — the numeric value becomes a search token
+            - Proximity queries (``"goffredo fofi"~5``) — inflates results unpredictably
         page:
             1-based page number (default: 1).
         hits:
@@ -73,15 +86,17 @@ class IlPostClient:
             Filter by content type: ``ContentType.ARTICLES``, ``ContentType.PODCASTS``,
             or ``ContentType.NEWSLETTERS``.
         category:
-            Filter articles by editorial category (e.g. ``"politica"``, ``"cultura"``).
-            Only meaningful when ``content_type=ContentType.ARTICLES`` or no content
-            type filter is set.
+            Filter articles by editorial category. Pass a single string
+            (e.g. ``"politica"``) or a list to AND multiple categories together
+            (e.g. ``["cultura", "libri"]``). Only meaningful when
+            ``content_type=ContentType.ARTICLES`` or no content type filter is set.
         date_range:
             Filter by publication date: ``DateRange.ALL_TIME``, ``DateRange.PAST_YEAR``,
             or ``DateRange.PAST_30_DAYS``.
         filters:
-            Raw pre-encoded filter string (e.g. ``"ctype:articoli,pub_date:ultimo_anno"``).
-            When provided, overrides ``content_type``, ``category``, and ``date_range``.
+            Raw pre-encoded filter string (e.g. ``"ctype:articoli;pub_date:ultimo_anno"``).
+            Filters are separated by ``;``. When provided, overrides ``content_type``,
+            ``category``, and ``date_range``.
 
         Returns
         -------
@@ -110,7 +125,7 @@ class IlPostClient:
         page: int = 1,
         hits: int = 10,
         sort: Union[SortOrder, str] = SortOrder.RELEVANCE,
-        category: Optional[str] = None,
+        category: Optional[Union[str, list[str]]] = None,
         date_range: Optional[DateRange] = None,
     ) -> SearchResult:
         """Search articles only. Convenience wrapper around :meth:`search`."""
@@ -169,7 +184,7 @@ class IlPostClient:
         hits: int = 10,
         sort: Union[SortOrder, str] = SortOrder.RELEVANCE,
         content_type: Optional[ContentType] = None,
-        category: Optional[str] = None,
+        category: Optional[Union[str, list[str]]] = None,
         date_range: Optional[DateRange] = None,
         max_pages: Optional[int] = None,
     ):

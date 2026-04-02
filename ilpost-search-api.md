@@ -307,3 +307,45 @@ GET https://api.ilpost.org/search/api/site_search/?qs=sicilia&pg=2&sort=default&
 - **Date format:** timestamps follow ISO 8601 without a timezone offset; they correspond to Italian local time (CET in winter, CEST in summer).
 - **CORS:** the API is accessible cross-origin from browsers (it is consumed directly by the ilpost.it frontend).
 - **`sort=date` (legacy):** the API also accepts the undocumented value `date` (equivalent to `date_d`), but the official frontend always sends `date_d` or `date_a`.
+
+---
+
+## Known Limitations & Gotchas (discovery log 2026-03-30)
+
+### Filter separator is `;` not `,`
+Multiple filters must be separated by `;` (URL-encoded as `%3B`). Commas only apply the first filter silently.
+
+```
+filters=ctype%3Aarticoli%3Bpub_date%3Aultimo_anno   ✔ articles from last year
+```
+
+Filters within the same group use AND logic (intersection). Combining two `ctype:` values always returns 0 results since a document can only have one type.
+
+### OR operator: `|` (pipe) works
+The single pipe `|` is an undocumented but functional OR operator, equivalent to the keyword `OR`. Double pipe `||` falls back to AND.
+
+```
+fofi | berlusconi    ✔ same as: fofi OR berlusconi
+fofi || berlusconi   ✗ behaves as AND
+```
+
+### What does NOT work
+
+| Syntax | Example | Actual behaviour |
+|--------|---------|-----------------|
+| Field prefix | `title:fofi` | Treated as two AND-ed tokens `title` and `fofi` — inflates results |
+| Boost operator | `berlusconi^10` | `^` stripped; `10` injected as a literal AND token |
+| Proximity query | `"goffredo fofi"~5` | Inflates results; tighter window returns *more* hits than wider — broken |
+| `ctype:blog_post` filter | `filters=ctype:blog_post` | Silently ignored — always 0 results |
+
+### Exact phrase search works
+```
+"goffredo fofi"    ✔ returns only documents with that exact phrase
+```
+
+### API is GET-only
+`POST`, `PUT`, and all other methods return `{"detail":"Method \"POST\" not allowed."}`.
+The `Access-Control-Allow-Methods` header listing POST/PUT is a generic CORS header, not specific to this endpoint.
+
+### `selected` field is unreliable for same-group multi-filters
+When two filters from the same group are applied (e.g. two `category:` values), only the first shows `"selected": true` in the response, even though both are active.
