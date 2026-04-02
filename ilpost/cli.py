@@ -111,18 +111,22 @@ def print_result(result, *, show_header: bool = True) -> None:
 
     for doc in result.docs:
         label = _TYPE_LABEL.get(doc.type, doc.type)
-        paywall = " [subscribers only]" if doc.is_paywalled else ""
-        score = f"  score={doc.score:.2f}" if doc.score else ""
-        category = f"  [{doc.category}]" if doc.category else ""
-        print(f"[{label}]{category}{paywall}{score}")
-        print(f"  {doc.title}")
-        print(f"  {doc.link}")
+        print(f"  type     : {label}")
+        if doc.category:
+            print(f"  category : {doc.category}")
+        print(f"  title    : {doc.title}")
+        print(f"  link     : {doc.link}")
+        print(f"  date     : {doc.timestamp}")
+        print(f"  score    : {doc.score:.2f}")
+        if doc.is_paywalled:
+            print(f"  access   : subscribers only")
+        if doc.summary:
+            print(f"  summary  : {doc.summary}")
         if doc.content:
-            print(f"  {doc.content}")
+            print(f"  content  : {doc.content}")
         elif doc.highlight:
-            # strip HTML span tags for plain-text display
             snippet = doc.highlight.replace("<span>", ">>").replace("</span>", "<<")
-            print(f"  ...{snippet}...")
+            print(f"  excerpt  : ...{snippet}...")
         print()
 
 
