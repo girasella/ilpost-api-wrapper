@@ -7,6 +7,7 @@ import urllib.request
 import json
 
 from .models import SearchResult, SortOrder, ContentType, DateRange
+from .scraper import fetch_article_content
 
 _BASE_URL = "https://api.ilpost.org/search/api/site_search/"
 
@@ -40,6 +41,13 @@ class IlPostClient:
     def __init__(self, timeout: int = 10) -> None:
         self.timeout = timeout
 
+    def _enrich_docs(self, docs: list, fetch_content: bool) -> None:
+        if not fetch_content:
+            return
+        for doc in docs:
+            if doc.is_article:
+                doc.content = fetch_article_content(doc.link, self.timeout)
+
     def _get(self, params: dict) -> dict:
         qs = urlencode(params, quote_via=quote)
         url = f"{_BASE_URL}?{qs}"
@@ -57,6 +65,7 @@ class IlPostClient:
         category: Optional[Union[str, list[str]]] = None,
         date_range: Optional[DateRange] = None,
         filters: Optional[str] = None,
+        fetch_content: bool = False,
     ) -> SearchResult:
         """Search Il Post content.
 
@@ -116,7 +125,9 @@ class IlPostClient:
         }
 
         data = self._get(params)
-        return SearchResult.from_dict(data, page=page, query=query)
+        result = SearchResult.from_dict(data, page=page, query=query)
+        self._enrich_docs(result.docs, fetch_content)
+        return result
 
     def search_articles(
         self,
@@ -127,6 +138,7 @@ class IlPostClient:
         sort: Union[SortOrder, str] = SortOrder.RELEVANCE,
         category: Optional[Union[str, list[str]]] = None,
         date_range: Optional[DateRange] = None,
+        fetch_content: bool = False,
     ) -> SearchResult:
         """Search articles only. Convenience wrapper around :meth:`search`."""
         return self.search(
@@ -137,6 +149,7 @@ class IlPostClient:
             content_type=ContentType.ARTICLES,
             category=category,
             date_range=date_range,
+            fetch_content=fetch_content,
         )
 
     def search_podcasts(
@@ -187,6 +200,7 @@ class IlPostClient:
         category: Optional[Union[str, list[str]]] = None,
         date_range: Optional[DateRange] = None,
         max_pages: Optional[int] = None,
+        fetch_content: bool = False,
     ):
         """Iterate over all pages of search results, yielding one :class:`SearchResult`
         per page.
@@ -210,6 +224,7 @@ class IlPostClient:
                 content_type=content_type,
                 category=category,
                 date_range=date_range,
+                fetch_content=fetch_content,
             )
             yield result
             if not result.has_next_page:

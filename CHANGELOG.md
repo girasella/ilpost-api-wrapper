@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-04-02
+
+### Added
+- **Article content scraping:** new `fetch_content=False` parameter on `search()`,
+  `search_articles()`, and `paginate()`. When `True`, the full article body is fetched
+  by scraping the article URL and stored in `doc.content`. Only applies to article
+  documents (`type == "post"`); podcasts and newsletters are unaffected.
+- New `ilpost/scraper.py` module with `ArticleScraper` (stdlib `html.parser` subclass)
+  and `fetch_article_content(url, timeout)` — exported from the package for direct use.
+  Targets `<div id="singleBody">`, which is the consistent content container across all
+  Il Post articles. Scraping errors are silently swallowed (`doc.content` stays `None`).
+- `Document.content: Optional[str]` field — `None` by default, populated when
+  `fetch_content=True`.
+- `--fetch-content` flag on the `ilpost-search` CLI — displays the full article text
+  in place of the highlight excerpt when content is available.
+
+### Changed
+- CLI output now uses labelled fields (`type`, `category`, `title`, `link`, `date`,
+  `score`, `summary`, `access`, `content`/`excerpt`) for easier reading.
+
+---
+
 ## [0.3.0] - 2026-04-02
 
 ### Fixed

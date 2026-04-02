@@ -63,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Maximum number of pages to fetch when using --all-pages",
     )
+    parser.add_argument(
+        "--fetch-content",
+        action="store_true",
+        help="Scrape and display the full article text (articles only)",
+    )
 
     return parser
 
@@ -106,16 +111,22 @@ def print_result(result, *, show_header: bool = True) -> None:
 
     for doc in result.docs:
         label = _TYPE_LABEL.get(doc.type, doc.type)
-        paywall = " [subscribers only]" if doc.is_paywalled else ""
-        score = f"  score={doc.score:.2f}" if doc.score else ""
-        category = f"  [{doc.category}]" if doc.category else ""
-        print(f"[{label}]{category}{paywall}{score}")
-        print(f"  {doc.title}")
-        print(f"  {doc.link}")
-        if doc.highlight:
-            # strip HTML span tags for plain-text display
+        print(f"  type     : {label}")
+        if doc.category:
+            print(f"  category : {doc.category}")
+        print(f"  title    : {doc.title}")
+        print(f"  link     : {doc.link}")
+        print(f"  date     : {doc.timestamp}")
+        print(f"  score    : {doc.score:.2f}")
+        if doc.is_paywalled:
+            print(f"  access   : subscribers only")
+        if doc.summary:
+            print(f"  summary  : {doc.summary}")
+        if doc.content:
+            print(f"  content  : {doc.content}")
+        elif doc.highlight:
             snippet = doc.highlight.replace("<span>", ">>").replace("</span>", "<<")
-            print(f"  ...{snippet}...")
+            print(f"  excerpt  : ...{snippet}...")
         print()
 
 
@@ -140,6 +151,7 @@ def main() -> None:
                 category=args.category,
                 date_range=date_range,
                 max_pages=args.max_pages,
+                fetch_content=args.fetch_content,
             ):
                 print_result(page_result, show_header=first)
                 first = False
@@ -152,6 +164,7 @@ def main() -> None:
                 content_type=content_type,
                 category=args.category,
                 date_range=date_range,
+                fetch_content=args.fetch_content,
             )
             print_result(result)
 
