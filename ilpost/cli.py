@@ -63,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Maximum number of pages to fetch when using --all-pages",
     )
+    parser.add_argument(
+        "--fetch-content",
+        action="store_true",
+        help="Scrape and display the full article text (articles only)",
+    )
 
     return parser
 
@@ -116,6 +121,9 @@ def print_result(result, *, show_header: bool = True) -> None:
             # strip HTML span tags for plain-text display
             snippet = doc.highlight.replace("<span>", ">>").replace("</span>", "<<")
             print(f"  ...{snippet}...")
+        if doc.content:
+            print(f"  ---")
+            print(f"  {doc.content}")
         print()
 
 
@@ -140,6 +148,7 @@ def main() -> None:
                 category=args.category,
                 date_range=date_range,
                 max_pages=args.max_pages,
+                fetch_content=args.fetch_content,
             ):
                 print_result(page_result, show_header=first)
                 first = False
@@ -152,6 +161,7 @@ def main() -> None:
                 content_type=content_type,
                 category=args.category,
                 date_range=date_range,
+                fetch_content=args.fetch_content,
             )
             print_result(result)
 

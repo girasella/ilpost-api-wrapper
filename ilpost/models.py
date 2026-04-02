@@ -72,6 +72,7 @@ class Document:
     category: Optional[str] = None
     post_tag_text: list[str] = field(default_factory=list)
     derived_info: dict = field(default_factory=dict)
+    content: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Document:
