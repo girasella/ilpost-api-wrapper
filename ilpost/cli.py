@@ -117,13 +117,12 @@ def print_result(result, *, show_header: bool = True) -> None:
         print(f"[{label}]{category}{paywall}{score}")
         print(f"  {doc.title}")
         print(f"  {doc.link}")
-        if doc.highlight:
+        if doc.content:
+            print(f"  {doc.content}")
+        elif doc.highlight:
             # strip HTML span tags for plain-text display
             snippet = doc.highlight.replace("<span>", ">>").replace("</span>", "<<")
             print(f"  ...{snippet}...")
-        if doc.content:
-            print(f"  ---")
-            print(f"  {doc.content}")
         print()
 
 
