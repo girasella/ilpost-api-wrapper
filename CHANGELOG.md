@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] - 2026-04-05
+
+### Fixed
+- **Content fetching skipped for `flashes` and `blog_post` articles:** `Document.is_article`
+  only matched `type == "post"`, so `fetch_content=True` had no effect on `flashes` and
+  `blog_post` documents. Both article types use the same `<div id="singleBody">` structure
+  and are now included.
+
+---
+
 ## [0.4.0] - 2026-04-02
 
 ### Added
