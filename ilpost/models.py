@@ -94,7 +94,7 @@ class Document:
 
     @property
     def is_article(self) -> bool:
-        return self.type in ("post", "flashes")
+        return self.type in ("post", "flashes", "blog_post")
 
     @property
     def is_podcast(self) -> bool:
