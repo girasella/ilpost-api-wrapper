@@ -22,8 +22,7 @@ def _build_filters(
         parts.append(f"ctype:{content_type.value}")
     if category is not None:
         cats = [category] if isinstance(category, str) else category
-        for cat in cats:
-            parts.append(f"category:{cat}")
+        parts.append(f"category:{','.join(cats)}")
     if date_range is not None:
         parts.append(f"pub_date:{date_range.value}")
     return ";".join(parts)
@@ -96,7 +95,7 @@ class IlPostClient:
             or ``ContentType.NEWSLETTERS``.
         category:
             Filter articles by editorial category. Pass a single string
-            (e.g. ``"politica"``) or a list to AND multiple categories together
+            (e.g. ``"politica"``) or a list to OR multiple categories together
             (e.g. ``["cultura", "libri"]``). Only meaningful when
             ``content_type=ContentType.ARTICLES`` or no content type filter is set.
         date_range:
