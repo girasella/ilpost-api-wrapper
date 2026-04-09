@@ -35,9 +35,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--category", "-c",
+        nargs="+",
         default=None,
         metavar="CATEGORY",
-        help="Editorial category, e.g. politica, cultura, economia (articles only)",
+        help="Editorial category filter (articles only). Pass one or more values for OR union, e.g. --category politica economia",
     )
     parser.add_argument(
         "--page", "-p",
