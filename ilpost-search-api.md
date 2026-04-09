@@ -349,3 +349,8 @@ The `Access-Control-Allow-Methods` header listing POST/PUT is a generic CORS hea
 
 ### `selected` field is unreliable for same-group multi-filters
 When two filters from the same group are applied (e.g. two `category:` values), only the first shows `"selected": true` in the response, even though both are active.
+
+### Search index has a ~5 day lag
+The Elasticsearch index does not include articles published in the last ~5 days. Querying for very recent content returns no results. The search API is not suitable for retrieving the latest news.
+
+As a workaround, date-archive pages on the website (`https://www.ilpost.it/YYYY/MM/DD/`) list all articles published on a given day and are updated in real time. These pages are paginated (20 articles per page) via `https://www.ilpost.it/YYYY/MM/DD/page/N/` and can be scraped to access recent content not yet indexed by the API.
