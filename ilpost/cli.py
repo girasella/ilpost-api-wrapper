@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import re
 import sys
 from dataclasses import asdict
-from datetime import datetime
 
 from .client import IlPostClient
 from .models import SortOrder, ContentType, DateRange
@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Search Il Post articles, podcasts, and newsletters.",
     )
 
-    parser.add_argument("query", help="Search term")
+    parser.add_argument("query", nargs="?", default=None, help="Search term")
 
     parser.add_argument(
         "--type", "-t",
@@ -87,6 +87,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="Directory for the JSON output file (default: current working directory)",
     )
+    parser.add_argument(
+        "--archive-date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Fetch all articles published on a specific date. "
+             "Date must be at least 5 days in the past.",
+    )
 
     return parser
 
@@ -118,7 +125,7 @@ _TYPE_LABEL = {
 
 def _make_output_path(query: str, output_dir: str | None) -> str:
     slug = re.sub(r"[^\w]+", "_", query).strip("_")[:50]
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     directory = output_dir or os.getcwd()
     return os.path.join(directory, f"{ts}_{slug}.json")
 
@@ -127,6 +134,27 @@ def _result_to_dict(result) -> dict:
     d = asdict(result)
     d["total_pages"] = result.total_pages
     return d
+
+
+def _print_doc(doc) -> None:
+    label = _TYPE_LABEL.get(doc.type, doc.type)
+    print(f"  type     : {label}")
+    if doc.category:
+        print(f"  category : {doc.category}")
+    print(f"  title    : {doc.title}")
+    print(f"  link     : {doc.link}")
+    print(f"  date     : {doc.timestamp}")
+    print(f"  score    : {doc.score:.2f}")
+    if doc.is_paywalled:
+        print(f"  access   : subscribers only")
+    if doc.summary:
+        print(f"  summary  : {doc.summary}")
+    if doc.content:
+        print(f"  content  : {doc.content}")
+    elif doc.highlight:
+        snippet = doc.highlight.replace("<span>", ">>").replace("</span>", "<<")
+        print(f"  excerpt  : ...{snippet}...")
+    print()
 
 
 def print_result(result, *, show_header: bool = True) -> None:
@@ -142,35 +170,48 @@ def print_result(result, *, show_header: bool = True) -> None:
         return
 
     for doc in result.docs:
-        label = _TYPE_LABEL.get(doc.type, doc.type)
-        print(f"  type     : {label}")
-        if doc.category:
-            print(f"  category : {doc.category}")
-        print(f"  title    : {doc.title}")
-        print(f"  link     : {doc.link}")
-        print(f"  date     : {doc.timestamp}")
-        print(f"  score    : {doc.score:.2f}")
-        if doc.is_paywalled:
-            print(f"  access   : subscribers only")
-        if doc.summary:
-            print(f"  summary  : {doc.summary}")
-        if doc.content:
-            print(f"  content  : {doc.content}")
-        elif doc.highlight:
-            snippet = doc.highlight.replace("<span>", ">>").replace("</span>", "<<")
-            print(f"  excerpt  : ...{snippet}...")
-        print()
+        _print_doc(doc)
+
+
+def print_docs(docs: list, *, date_str: str = "") -> None:
+    print(f"\nDate: {date_str}  |  Total: {len(docs)}")
+    print("-" * 72)
+    if not docs:
+        print("No results.")
+        return
+    for doc in docs:
+        _print_doc(doc)
 
 
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    if args.archive_date is None and args.query is None:
+        parser.error("provide a search query or --archive-date")
+
     sort = _SORT_MAP[args.sort]
     content_type = _CTYPE_MAP.get(args.content_type)
     date_range = _DATE_MAP.get(args.date_range)
 
     client = IlPostClient()
+
+    try:
+        if args.archive_date:
+            date = datetime.date.fromisoformat(args.archive_date)
+            docs = client.get_by_date(date, fetch_content=args.fetch_content)
+            if args.output_json:
+                obj = {"date": args.archive_date, "total": len(docs), "docs": [asdict(d) for d in docs]}
+                path = _make_output_path(args.archive_date, args.output_dir)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(obj, f, ensure_ascii=False, indent=2)
+                print(path)
+            else:
+                print_docs(docs, date_str=args.archive_date)
+            return
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     try:
         if args.all_pages:
