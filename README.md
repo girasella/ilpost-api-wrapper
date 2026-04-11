@@ -34,6 +34,7 @@ for doc in result.docs:
 | `search_podcasts(query, ...)` | Podcast episodes only |
 | `search_newsletters(query, ...)` | Newsletter issues only |
 | `paginate(query, ...)` | Generator that yields one `SearchResult` per page |
+| `get_by_date(date, ...)` | All articles published on a specific date (scrapes the date-archive page) |
 
 #### Common parameters
 

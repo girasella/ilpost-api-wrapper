@@ -14,14 +14,14 @@ _BASE_URL = "https://api.ilpost.org/search/api/site_search/"
 _ARCHIVE_BASE_URL = "https://www.ilpost.it"
 
 
-def _doc_from_archive_item(item: dict) -> Document:
+def _doc_from_archive_item(item: dict, date: datetime.date) -> Document:
     link = item.get("link", "")
     doc_type = "flashes" if "/flashes/" in link else "post"
     raw_ts = item.get("timestamp", "")
     try:
         ts = datetime.datetime.strptime(raw_ts, "%d/%m/%Y").strftime("%Y-%m-%dT00:00:00")
     except ValueError:
-        ts = raw_ts
+        ts = date.strftime("%Y-%m-%dT00:00:00")
     return Document(
         id=0,
         type=doc_type,
@@ -324,13 +324,15 @@ class IlPostClient:
             items = fetch_archive_page(url, self.timeout)
             if not items:
                 break
-            docs.extend(_doc_from_archive_item(i) for i in items)
+            docs.extend(_doc_from_archive_item(i, date) for i in items)
             page += 1
 
         print(f"Found {len(docs)} articles. Enriching from API...", file=sys.stderr)
         for i, doc in enumerate(docs, 1):
             print(f"  [{i}/{len(docs)}] {doc.title[:70]}", file=sys.stderr)
             _enrich_doc_from_search(doc, self)
+        docs = [doc for doc in docs if doc.id != 0]
+        print(f"Enriched {len(docs)} articles.", file=sys.stderr)
         if fetch_content:
             print("Fetching article content...", file=sys.stderr)
         self._enrich_docs(docs, fetch_content)
