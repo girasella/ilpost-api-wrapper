@@ -49,7 +49,18 @@ for doc in result.docs:
 | `date_range` | `DateRange` | `None` | Publication date filter |
 | `fetch_content` | `bool` | `False` | Scrape and return full article text for each article result (see [`Document.content`](#document)) |
 
-> `fetch_content` is available on `search()`, `search_articles()`, and `paginate()`. It has no effect on podcast or newsletter results — `doc.content` will be `None` for those types.
+> `fetch_content` is available on `search()`, `search_articles()`, `paginate()`, and `get_by_date()`. It has no effect on podcast or newsletter results — `doc.content` will be `None` for those types.
+
+#### `get_by_date(date, *, fetch_content=False)`
+
+Returns all articles published on *date* by scraping the Il Post date-archive page (`https://www.ilpost.it/YYYY/MM/DD/`), paginating through all pages automatically. Each article is then enriched with API fields (id, tags, category, subscriber status, full timestamp) via a title-based search lookup. Articles that cannot be matched in the search index are excluded from the results.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `date` | `datetime.date` | — | Publication date to fetch |
+| `fetch_content` | `bool` | `False` | Scrape the full article body for each result |
+
+Raises `ValueError` if *date* is in the future or within the last 5 days (the search index has a ~5 day lag; recent dates cannot be enriched).
 
 #### Enums
 
@@ -152,6 +163,12 @@ for doc in result.docs:
 # Use the scraper directly (e.g. for parallel fetching)
 from ilpost import fetch_article_content
 text = fetch_article_content("https://www.ilpost.it/2026/04/02/...")
+
+# Fetch all articles published on a specific date
+import datetime
+docs = client.get_by_date(datetime.date(2025, 11, 12))
+for doc in docs:
+    print(doc.title, doc.timestamp)
 ```
 
 ## CLI
@@ -162,13 +179,13 @@ The `ilpost-search` command is included with the package:
 usage: ilpost-search [-h] [--type {articles,podcasts,newsletters}]
                      [--sort {relevance,newest,oldest}]
                      [--date {all,year,month}] [--category CATEGORY [CATEGORY ...]]
-                     [--page PAGE] [--hits HITS] [--all-pages]
-                     [--max-pages N] [--fetch-content]
-                     [--output-json] [--output-dir DIR]
-                     query
+                     [--page PAGE] [--hits HITS] [--all-pages] [--max-pages N]
+                     [--fetch-content] [--output-json] [--output-dir DIR]
+                     [--archive-date YYYY-MM-DD]
+                     [query]
 ```
 
-Each result is printed with labelled fields: `type`, `category`, `title`, `link`, `date`, `score`, `summary`, and either `content` (when `--fetch-content` is used) or `excerpt` (search highlight).
+Each result is printed with labelled fields: `type`, `category`, `tags`, `title`, `link`, `date`, `score`, `summary`, and either `content` (when `--fetch-content` is used) or `excerpt` (search highlight).
 
 `--output-json` suppresses stdout and writes results to a JSON file instead. The filename is generated automatically from the timestamp and query (e.g. `20260411_143000_matteo_zuppi.json`). Use `--output-dir` to specify a target directory (defaults to the current working directory). The file path is printed to stdout so it can be captured by scripts.
 
@@ -199,6 +216,15 @@ ilpost-search berlusconi --hits 20 --output-json
 
 # Save results to a specific directory
 ilpost-search berlusconi --all-pages --output-json --output-dir ~/Desktop
+
+# Fetch all articles published on a specific date
+ilpost-search --archive-date 2025-11-12
+
+# Fetch articles by date and save to JSON
+ilpost-search --archive-date 2025-11-12 --output-json
+
+# Fetch articles by date with full content
+ilpost-search --archive-date 2025-11-12 --fetch-content
 ```
 
 ## Notes

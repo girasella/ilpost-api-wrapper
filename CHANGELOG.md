@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-04-11
+
+### Added
+- **`get_by_date(date, *, fetch_content=False)`:** new method on `IlPostClient` that
+  returns all articles published on a given date by scraping the Il Post date-archive
+  page (`https://www.ilpost.it/YYYY/MM/DD/`). All pages are fetched automatically
+  (20 articles per page). Each article is enriched with API fields (id, tags, category,
+  subscriber status, full timestamp) via a title-based search lookup. Articles that
+  cannot be matched in the search index are excluded from the results. Closes #2.
+- **`--archive-date YYYY-MM-DD` CLI flag:** fetches all articles published on a specific
+  date. Supports `--fetch-content` and `--output-json` / `--output-dir`. Passing a date
+  within the last 5 days raises an error (search index lag).
+- Progress logging to stderr during `get_by_date()` (archive page fetching, per-article
+  enrichment progress, final count).
+- Tags (`post_tag_text`) are now displayed in CLI output.
+
+### Changed
+- `query` is now optional in the CLI — either a query or `--archive-date` must be provided.
+- **`--output-json` / `--output-dir` flags** (previously unreleased, deferred from 0.4.x):
+  suppresses stdout and writes results to a timestamped JSON file. The output path is
+  printed to stdout for scripting. Closes #5.
+
+---
+
 ## [0.4.2] - 2026-04-09
 
 ### Fixed
