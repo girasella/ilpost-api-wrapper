@@ -147,6 +147,8 @@ def _print_doc(doc) -> None:
     print(f"  score    : {doc.score:.2f}")
     if doc.is_paywalled:
         print(f"  access   : subscribers only")
+    if doc.post_tag_text:
+        print(f"  tags     : {', '.join(doc.post_tag_text)}")
     if doc.summary:
         print(f"  summary  : {doc.summary}")
     if doc.content:
