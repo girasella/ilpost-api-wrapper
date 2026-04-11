@@ -49,6 +49,7 @@ def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
             if found.link.rstrip("/") == doc.link.rstrip("/"):
                 doc.id = found.id
                 doc.subscriber = found.subscriber
+                doc.timestamp = found.timestamp
                 doc.post_tag_text = found.post_tag_text
                 if found.category:
                     doc.category = found.category
