@@ -1,5 +1,12 @@
+from __future__ import annotations
+
 import argparse
+import json
+import os
+import re
 import sys
+from dataclasses import asdict
+from datetime import datetime
 
 from .client import IlPostClient
 from .models import SortOrder, ContentType, DateRange
@@ -69,6 +76,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Scrape and display the full article text (articles only)",
     )
+    parser.add_argument(
+        "--output-json",
+        action="store_true",
+        help="Save results to a JSON file instead of printing to stdout",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        metavar="DIR",
+        help="Directory for the JSON output file (default: current working directory)",
+    )
 
     return parser
 
@@ -96,6 +114,19 @@ _TYPE_LABEL = {
     "episodes": "podcast",
     "newsletter": "newsletter",
 }
+
+
+def _make_output_path(query: str, output_dir: str | None) -> str:
+    slug = re.sub(r"[^\w]+", "_", query).strip("_")[:50]
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    directory = output_dir or os.getcwd()
+    return os.path.join(directory, f"{ts}_{slug}.json")
+
+
+def _result_to_dict(result) -> dict:
+    d = asdict(result)
+    d["total_pages"] = result.total_pages
+    return d
 
 
 def print_result(result, *, show_header: bool = True) -> None:
@@ -143,8 +174,7 @@ def main() -> None:
 
     try:
         if args.all_pages:
-            first = True
-            for page_result in client.paginate(
+            pages = list(client.paginate(
                 args.query,
                 hits=args.hits,
                 sort=sort,
@@ -153,9 +183,22 @@ def main() -> None:
                 date_range=date_range,
                 max_pages=args.max_pages,
                 fetch_content=args.fetch_content,
-            ):
-                print_result(page_result, show_header=first)
-                first = False
+            ))
+            if args.output_json:
+                if pages:
+                    obj = _result_to_dict(pages[0])
+                    obj["docs"] = [d for p in pages for d in asdict(p)["docs"]]
+                else:
+                    obj = {}
+                path = _make_output_path(args.query, args.output_dir)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(obj, f, ensure_ascii=False, indent=2)
+                print(path)
+            else:
+                first = True
+                for page_result in pages:
+                    print_result(page_result, show_header=first)
+                    first = False
         else:
             result = client.search(
                 args.query,
@@ -167,7 +210,13 @@ def main() -> None:
                 date_range=date_range,
                 fetch_content=args.fetch_content,
             )
-            print_result(result)
+            if args.output_json:
+                path = _make_output_path(args.query, args.output_dir)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(_result_to_dict(result), f, ensure_ascii=False, indent=2)
+                print(path)
+            else:
+                print_result(result)
 
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
