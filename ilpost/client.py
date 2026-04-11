@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import sys
 import urllib.request
 from typing import Optional, Union
 from urllib.parse import urlencode, quote
@@ -319,13 +320,18 @@ class IlPostClient:
         page = 1
         while True:
             url = f"{base}/" if page == 1 else f"{base}/page/{page}/"
+            print(f"Fetching archive page {page}...", file=sys.stderr)
             items = fetch_archive_page(url, self.timeout)
             if not items:
                 break
             docs.extend(_doc_from_archive_item(i) for i in items)
             page += 1
 
-        for doc in docs:
+        print(f"Found {len(docs)} articles. Enriching from API...", file=sys.stderr)
+        for i, doc in enumerate(docs, 1):
+            print(f"  [{i}/{len(docs)}] {doc.title[:70]}", file=sys.stderr)
             _enrich_doc_from_search(doc, self)
+        if fetch_content:
+            print("Fetching article content...", file=sys.stderr)
         self._enrich_docs(docs, fetch_content)
         return docs
