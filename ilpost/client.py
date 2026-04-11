@@ -1,15 +1,61 @@
 from __future__ import annotations
 
+import datetime
+import json
+import sys
+import urllib.request
 from typing import Optional, Union
 from urllib.parse import urlencode, quote
 
-import urllib.request
-import json
-
-from .models import SearchResult, SortOrder, ContentType, DateRange
-from .scraper import fetch_article_content
+from .models import Document, SearchResult, SortOrder, ContentType, DateRange
+from .scraper import fetch_article_content, fetch_archive_page
 
 _BASE_URL = "https://api.ilpost.org/search/api/site_search/"
+_ARCHIVE_BASE_URL = "https://www.ilpost.it"
+
+
+def _doc_from_archive_item(item: dict, date: datetime.date) -> Document:
+    link = item.get("link", "")
+    doc_type = "flashes" if "/flashes/" in link else "post"
+    raw_ts = item.get("timestamp", "")
+    try:
+        ts = datetime.datetime.strptime(raw_ts, "%d/%m/%Y").strftime("%Y-%m-%dT00:00:00")
+    except ValueError:
+        ts = date.strftime("%Y-%m-%dT00:00:00")
+    return Document(
+        id=0,
+        type=doc_type,
+        title=item.get("title", "").strip(),
+        link=link,
+        timestamp=ts,
+        summary=item.get("summary", "").strip(),
+        image=item.get("image", ""),
+        score=0.0,
+        subscriber=False,
+    )
+
+
+def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
+    """Try to fill missing API fields (id, tags, subscriber, etc.) via title search."""
+    words = doc.title.split()
+    queries = [f'"{doc.title}"']
+    if len(words) > 6:
+        queries.append(f'"{" ".join(words[:6])}"')
+    for query in queries:
+        try:
+            result = client.search(query, hits=5, sort=SortOrder.NEWEST)
+        except Exception:
+            return
+        for found in result.docs:
+            if found.link.rstrip("/") == doc.link.rstrip("/"):
+                doc.id = found.id
+                doc.subscriber = found.subscriber
+                doc.timestamp = found.timestamp
+                doc.post_tag_text = found.post_tag_text
+                if found.category:
+                    doc.category = found.category
+                doc.derived_info = found.derived_info
+                return
 
 
 def _build_filters(
@@ -231,3 +277,63 @@ class IlPostClient:
             if max_pages is not None and page >= max_pages:
                 break
             page += 1
+
+    def get_by_date(
+        self,
+        date: datetime.date,
+        *,
+        fetch_content: bool = False,
+    ) -> list[Document]:
+        """Return all articles published on *date* by scraping the date-archive page.
+
+        Each article is enriched with API fields (id, tags, subscriber status, etc.)
+        via a title-based search lookup. If a match cannot be confirmed by URL comparison,
+        the article is returned with partial data only.
+
+        Parameters
+        ----------
+        date:
+            The publication date to fetch. Must be at least 5 days in the past
+            (the search index has a ~5 day lag; recent dates are rejected).
+        fetch_content:
+            If ``True``, scrape the full article body for each result.
+
+        Returns
+        -------
+        list[Document]
+
+        Raises
+        ------
+        ValueError
+            If *date* is in the future or within the last 5 days.
+        """
+        today = datetime.date.today()
+        if date > today:
+            raise ValueError(f"date cannot be in the future: {date}")
+        if (today - date).days < 5:
+            raise ValueError(
+                f"{date} is too recent — archive dates must be at least 5 days in the past"
+            )
+
+        base = f"{_ARCHIVE_BASE_URL}/{date.year:04d}/{date.month:02d}/{date.day:02d}"
+        docs: list[Document] = []
+        page = 1
+        while True:
+            url = f"{base}/" if page == 1 else f"{base}/page/{page}/"
+            print(f"Fetching archive page {page}...", file=sys.stderr)
+            items = fetch_archive_page(url, self.timeout)
+            if not items:
+                break
+            docs.extend(_doc_from_archive_item(i, date) for i in items)
+            page += 1
+
+        print(f"Found {len(docs)} articles. Enriching from API...", file=sys.stderr)
+        for i, doc in enumerate(docs, 1):
+            print(f"  [{i}/{len(docs)}] {doc.title[:70]}", file=sys.stderr)
+            _enrich_doc_from_search(doc, self)
+        docs = [doc for doc in docs if doc.id != 0]
+        print(f"Enriched {len(docs)} articles.", file=sys.stderr)
+        if fetch_content:
+            print("Fetching article content...", file=sys.stderr)
+        self._enrich_docs(docs, fetch_content)
+        return docs
