@@ -44,7 +44,7 @@ for doc in result.docs:
 | `hits` | `int` | `10` | Results per page |
 | `sort` | `SortOrder` | `RELEVANCE` | Sort order |
 | `content_type` | `ContentType` | `None` | Filter by content type |
-| `category` | `str` | `None` | Editorial category (articles only) |
+| `category` | `str \| list[str]` | `None` | Editorial category filter (articles only). Pass a list for OR union, e.g. `["politica", "economia"]` |
 | `date_range` | `DateRange` | `None` | Publication date filter |
 | `fetch_content` | `bool` | `False` | Scrape and return full article text for each article result (see [`Document.content`](#document)) |
 
@@ -92,7 +92,7 @@ for doc in result.docs:
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `id` | `int` | Unique content identifier |
-| `type` | `str` | `"post"`, `"episodes"`, or `"newsletter"` |
+| `type` | `str` | `"post"`, `"flashes"`, `"blog_post"`, `"episodes"`, or `"newsletter"` |
 | `title` | `str` | Content title |
 | `link` | `str` | URL to the content page |
 | `timestamp` | `str` | Publication date (ISO 8601, Italian local time) |
@@ -160,13 +160,16 @@ The `ilpost-search` command is included with the package:
 ```
 usage: ilpost-search [-h] [--type {articles,podcasts,newsletters}]
                      [--sort {relevance,newest,oldest}]
-                     [--date {all,year,month}] [--category CATEGORY]
+                     [--date {all,year,month}] [--category CATEGORY [CATEGORY ...]]
                      [--page PAGE] [--hits HITS] [--all-pages]
                      [--max-pages N] [--fetch-content]
+                     [--output-json] [--output-dir DIR]
                      query
 ```
 
 Each result is printed with labelled fields: `type`, `category`, `title`, `link`, `date`, `score`, `summary`, and either `content` (when `--fetch-content` is used) or `excerpt` (search highlight).
+
+`--output-json` suppresses stdout and writes results to a JSON file instead. The filename is generated automatically from the timestamp and query (e.g. `20260411_143000_matteo_zuppi.json`). Use `--output-dir` to specify a target directory (defaults to the current working directory). The file path is printed to stdout so it can be captured by scripts.
 
 ```bash
 # Basic search
@@ -186,6 +189,15 @@ ilpost-search economia --type newsletters --all-pages --max-pages 3
 
 # Fetch full article text for each result
 ilpost-search bondi --type articles --hits 3 --fetch-content
+
+# Filter by multiple categories (OR union)
+ilpost-search cultivar --category scienza italia mondo
+
+# Save results to a JSON file in the current directory
+ilpost-search berlusconi --hits 20 --output-json
+
+# Save results to a specific directory
+ilpost-search berlusconi --all-pages --output-json --output-dir ~/Desktop
 ```
 
 ## Notes
@@ -194,3 +206,4 @@ ilpost-search bondi --type articles --hits 3 --fetch-content
 - When sorting by date (`NEWEST` or `OLDEST`), `score` is always `0.0`.
 - The `category` filter only applies to articles. It is ignored by the server when `content_type=PODCASTS`.
 - Timestamps are in Italian local time (CET/CEST) with no UTC offset.
+- The search index has a ~5 day lag. Articles published in the last few days will not appear in search results.
