@@ -105,7 +105,7 @@ def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
         if len(summary_words) >= 3:
             summary_query = " ".join(summary_words[:5])
             try:
-                result = client.search(summary_query, hits=10, sort=SortOrder.NEWEST)
+                result = client.search(summary_query, hits=20, sort=SortOrder.RELEVANCE)
             except Exception:
                 return
             for found in result.docs:
