@@ -35,6 +35,8 @@ def _is_skippable(doc: Document) -> bool:
         return True
     if "le-prime-pagine-" in doc.link:
         return True
+    if doc.title.startswith("Le previsioni meteo"):
+        return True
     return False
 
 
@@ -105,7 +107,7 @@ def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
     if doc.summary:
         summary_words = _clean_query_words(doc.summary, min_len=5)
         if len(summary_words) >= 3:
-            summary_query = " ".join(summary_words[:5])
+            summary_query = " ".join(summary_words[:7])
             try:
                 result = client.search(summary_query, hits=20, sort=SortOrder.RELEVANCE)
             except Exception:
