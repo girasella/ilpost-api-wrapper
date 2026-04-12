@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import sys
 import urllib.request
 from typing import Optional, Union
@@ -12,6 +13,31 @@ from .scraper import fetch_article_content, fetch_archive_page
 
 _BASE_URL = "https://api.ilpost.org/search/api/site_search/"
 _ARCHIVE_BASE_URL = "https://www.ilpost.it"
+
+_POSTIT_IMAGE = "https://www.ilpost.it/wp-content/uploads/2019/10/ilpost-anteprima-colore.png"
+
+_ITALIAN_DATE_TITLE_RE = re.compile(
+    r"^(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica)"
+    r"\s+\d{1,2}\s+"
+    r"(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto"
+    r"|settembre|ottobre|novembre|dicembre)$",
+    re.IGNORECASE,
+)
+
+
+def _is_skippable(doc: Document) -> bool:
+    """Return True for archive articles not available in the search API."""
+    if doc.image == _POSTIT_IMAGE:
+        return True
+    if doc.title.startswith("Peanuts"):
+        return True
+    if _ITALIAN_DATE_TITLE_RE.match(doc.title):
+        return True
+    if "le-prime-pagine-" in doc.link:
+        return True
+    if doc.title.startswith("Le previsioni meteo"):
+        return True
+    return False
 
 
 def _doc_from_archive_item(item: dict, date: datetime.date) -> Document:
@@ -35,12 +61,38 @@ def _doc_from_archive_item(item: dict, date: datetime.date) -> Document:
     )
 
 
+def _clean_query_words(text: str, min_len: int = 1) -> list[str]:
+    """Return clean tokens from *text* suitable for use in a search query.
+
+    Steps:
+    1. Replace Windows-1252 apostrophe replacement char with a real apostrophe.
+    2. Split on whitespace.
+    3. Strip trailing punctuation (.,;:!?) from each token.
+    4. Drop tokens shorter than *min_len*.
+    """
+    text = text.replace("\ufffd", "'")
+    words = [re.sub(r"[.,;:!?]+$", "", w) for w in text.split()]
+    return [w for w in words if len(w) >= min_len]
+
+
+def _apply_enrichment(doc: Document, found: Document) -> None:
+    doc.id = found.id
+    doc.subscriber = found.subscriber
+    doc.timestamp = found.timestamp
+    doc.post_tag_text = found.post_tag_text
+    if found.category:
+        doc.category = found.category
+    doc.derived_info = found.derived_info
+
+
 def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
-    """Try to fill missing API fields (id, tags, subscriber, etc.) via title search."""
-    words = doc.title.split()
-    queries = [f'"{doc.title}"']
-    if len(words) > 6:
-        queries.append(f'"{" ".join(words[:6])}"')
+    """Try to fill missing API fields (id, tags, subscriber, etc.) via title search,
+    with a summary-based keyword search as fallback."""
+    title_words = _clean_query_words(doc.title)
+    clean_title = " ".join(title_words)
+    queries = [f'"{clean_title}"']
+    if len(title_words) > 6:
+        queries.append(f'"{" ".join(title_words[:6])}"')
     for query in queries:
         try:
             result = client.search(query, hits=5, sort=SortOrder.NEWEST)
@@ -48,14 +100,22 @@ def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
             return
         for found in result.docs:
             if found.link.rstrip("/") == doc.link.rstrip("/"):
-                doc.id = found.id
-                doc.subscriber = found.subscriber
-                doc.timestamp = found.timestamp
-                doc.post_tag_text = found.post_tag_text
-                if found.category:
-                    doc.category = found.category
-                doc.derived_info = found.derived_info
+                _apply_enrichment(doc, found)
                 return
+
+    # Fallback: keyword search on summary words (stripped of punctuation)
+    if doc.summary:
+        summary_words = _clean_query_words(doc.summary, min_len=5)
+        if len(summary_words) >= 3:
+            summary_query = " ".join(summary_words[:7])
+            try:
+                result = client.search(summary_query, hits=20, sort=SortOrder.RELEVANCE)
+            except Exception:
+                return
+            for found in result.docs:
+                if found.link.rstrip("/") == doc.link.rstrip("/"):
+                    _apply_enrichment(doc, found)
+                    return
 
 
 def _build_filters(
@@ -327,6 +387,13 @@ class IlPostClient:
             docs.extend(_doc_from_archive_item(i, date) for i in items)
             page += 1
 
+        skippable = [d for d in docs if _is_skippable(d)]
+        docs = [d for d in docs if not _is_skippable(d)]
+        if skippable:
+            print(
+                f"Skipped {len(skippable)} non-API articles (post-it/comics/photos).",
+                file=sys.stderr,
+            )
         print(f"Found {len(docs)} articles. Enriching from API...", file=sys.stderr)
         for i, doc in enumerate(docs, 1):
             print(f"  [{i}/{len(docs)}] {doc.title[:70]}", file=sys.stderr)

@@ -2,3 +2,4 @@
 __pycache__/
 .claude/settings.local.json
 dist/
+diagnose_get_by_date.py

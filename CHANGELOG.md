@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.1] - 2026-04-12
+
+### Fixed
+- **`get_by_date()` enrichment improvements:**
+  - Added summary-keyword fallback search (up to 7 words, relevance-sorted) when
+    title phrase queries fail to match.
+  - Fixed corrupted apostrophes in title queries: archive page titles containing
+    Windows-1252 `\x92` bytes (decoded as `\ufffd`) are now normalised to `'`
+    before searching.
+  - Fixed trailing punctuation in title and summary query tokens (e.g. `imprecisioni,`
+    → `imprecisioni`).
+  - Extracted `_clean_query_words()` helper used by both title and summary paths.
+- **Additional skippable article types** recognised and excluded before enrichment:
+  Peanuts comic strips, daily photo roundups, `le-prime-pagine-*` (newspaper
+  front-page galleries), and meteo forecast articles
+  (`title.startswith("Le previsioni meteo")`).
+
+---
+
 ## [0.5.0] - 2026-04-11
 
 ### Added
