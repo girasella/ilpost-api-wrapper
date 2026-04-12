@@ -53,7 +53,9 @@ for doc in result.docs:
 
 #### `get_by_date(date, *, fetch_content=False)`
 
-Returns all articles published on *date* by scraping the Il Post date-archive page (`https://www.ilpost.it/YYYY/MM/DD/`), paginating through all pages automatically. Each article is then enriched with API fields (id, tags, category, subscriber status, full timestamp) via a title-based search lookup. Articles that cannot be matched in the search index are excluded from the results.
+Returns all articles published on *date* by scraping the Il Post date-archive page (`https://www.ilpost.it/YYYY/MM/DD/`), paginating through all pages automatically. Each article is then enriched with API fields (id, tags, category, subscriber status, full timestamp) via a title-based search lookup (with a summary-keyword fallback). Articles that cannot be matched in the search index are excluded from the results.
+
+The following recurring article types are automatically skipped before enrichment, as they are not available in the search API: post-it external-link articles (pre-2017), Peanuts comic strips, daily photo roundups, newspaper front-page galleries (`le-prime-pagine-*`), and meteo forecast articles.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
