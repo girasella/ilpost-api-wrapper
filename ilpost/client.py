@@ -57,6 +57,20 @@ def _doc_from_archive_item(item: dict, date: datetime.date) -> Document:
     )
 
 
+def _clean_query_words(text: str, min_len: int = 1) -> list[str]:
+    """Return clean tokens from *text* suitable for use in a search query.
+
+    Steps:
+    1. Replace Windows-1252 apostrophe replacement char with a real apostrophe.
+    2. Split on whitespace.
+    3. Strip trailing punctuation (.,;:!?) from each token.
+    4. Drop tokens shorter than *min_len*.
+    """
+    text = text.replace("\ufffd", "'")
+    words = [re.sub(r"[.,;:!?]+$", "", w) for w in text.split()]
+    return [w for w in words if len(w) >= min_len]
+
+
 def _apply_enrichment(doc: Document, found: Document) -> None:
     doc.id = found.id
     doc.subscriber = found.subscriber
@@ -70,10 +84,11 @@ def _apply_enrichment(doc: Document, found: Document) -> None:
 def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
     """Try to fill missing API fields (id, tags, subscriber, etc.) via title search,
     with a summary-based keyword search as fallback."""
-    words = doc.title.split()
-    queries = [f'"{doc.title}"']
-    if len(words) > 6:
-        queries.append(f'"{" ".join(words[:6])}"')
+    title_words = _clean_query_words(doc.title)
+    clean_title = " ".join(title_words)
+    queries = [f'"{clean_title}"']
+    if len(title_words) > 6:
+        queries.append(f'"{" ".join(title_words[:6])}"')
     for query in queries:
         try:
             result = client.search(query, hits=5, sort=SortOrder.NEWEST)
@@ -84,9 +99,9 @@ def _enrich_doc_from_search(doc: Document, client: IlPostClient) -> None:
                 _apply_enrichment(doc, found)
                 return
 
-    # Fallback: keyword search on summary words
+    # Fallback: keyword search on summary words (stripped of punctuation)
     if doc.summary:
-        summary_words = [w for w in doc.summary.split() if len(w) > 4]
+        summary_words = _clean_query_words(doc.summary, min_len=5)
         if len(summary_words) >= 3:
             summary_query = " ".join(summary_words[:5])
             try:
