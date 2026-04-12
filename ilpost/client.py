@@ -33,6 +33,8 @@ def _is_skippable(doc: Document) -> bool:
         return True
     if _ITALIAN_DATE_TITLE_RE.match(doc.title):
         return True
+    if "le-prime-pagine-" in doc.link:
+        return True
     return False
 
 
